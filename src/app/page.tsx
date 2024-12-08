@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { GenerationOptions } from "@/types";
 import {
   Dialog,
@@ -56,21 +56,43 @@ const StableImageGeneratePage: React.FC = () => {
     setImage(null);
 
     try {
-      const response = await axios.post("/api/generate", {
-        ...options,
-        apiKey,
-      });
+      const formData = new FormData();
+      formData.append("prompt", options.prompt);
+      if (options.model) formData.append("model", options.model);
+      if (options.aspect_ratio)
+        formData.append("aspect_ratio", options.aspect_ratio);
+      if (options.negative_prompt)
+        formData.append("negative_prompt", options.negative_prompt);
+      if (options.seed) formData.append("seed", options.seed.toString());
+      if (options.cfg_scale)
+        formData.append("cfg_scale", options.cfg_scale.toString());
+
+      const response = await axios.post(
+        "https://api.stability.ai/v2beta/stable-image/generate/sd3",
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+            Authorization: `Bearer ${apiKey}`,
+          },
+        }
+      );
+
       const { image: imageData, finish_reason, seed } = response.data;
 
       if (imageData && finish_reason === "SUCCESS") {
         setImage(`data:image/png;base64,${imageData}`);
-        setLastSeed(seed); // Store the seed used for the generation
+        setLastSeed(seed);
       } else {
         setError("No image was generated.");
       }
-    } catch (err) {
-      setError("Failed to generate image. Please try again.");
-      console.error(err);
+    } catch (error) {
+      if (error instanceof AxiosError && error.status === 401) {
+        setError("Invalid API Key");
+      } else {
+        setError("An error occurred while generating the image.");
+      }
     } finally {
       setLoading(false);
     }
