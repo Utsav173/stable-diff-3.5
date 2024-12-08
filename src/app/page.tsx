@@ -15,6 +15,45 @@ import { Button } from "@/components/ui/button";
 
 const API_KEY_STORAGE_KEY = "sd_api_key";
 
+const ApiKeyDialog = ({
+  apiKey,
+  setTempApiKey,
+  handleApiKeySubmit,
+  tempApiKey,
+}: {
+  apiKey: string | null;
+  setTempApiKey: React.Dispatch<React.SetStateAction<string>>;
+  handleApiKeySubmit: () => void;
+  tempApiKey: string;
+}) => (
+  <Dialog open={!apiKey}>
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Enter your API Key</DialogTitle>
+        <DialogDescription>
+          Please enter your Stable Diffusion API key to continue. This will be
+          stored securely in your browser.
+        </DialogDescription>
+      </DialogHeader>
+      <div className="space-y-4 pt-4">
+        <Input
+          type="password"
+          placeholder="Enter your API key"
+          value={tempApiKey}
+          onChange={(e) => setTempApiKey(e.target.value)}
+        />
+        <Button
+          onClick={handleApiKeySubmit}
+          className="w-full"
+          disabled={!tempApiKey.trim()}
+        >
+          Save API Key
+        </Button>
+      </div>
+    </DialogContent>
+  </Dialog>
+);
+
 const StableImageGeneratePage: React.FC = () => {
   const [options, setOptions] = useState<GenerationOptions>({
     prompt: "",
@@ -22,22 +61,18 @@ const StableImageGeneratePage: React.FC = () => {
     aspect_ratio: "1:1",
     negative_prompt: "",
     seed: 0,
-    cfg_scale: 7.5,
+    cfg_scale: 7,
   });
   const [image, setImage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastSeed, setLastSeed] = useState<number | null>(null);
-  const [showApiKeyDialog, setShowApiKeyDialog] = useState(false);
   const [apiKey, setApiKey] = useState<string>("");
   const [tempApiKey, setTempApiKey] = useState<string>("");
 
   useEffect(() => {
-    // Check for API key in localStorage on component mount
     const storedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
-    if (!storedApiKey) {
-      setShowApiKeyDialog(true);
-    } else {
+    if (storedApiKey) {
       setApiKey(storedApiKey);
     }
   }, []);
@@ -46,8 +81,12 @@ const StableImageGeneratePage: React.FC = () => {
     if (tempApiKey.trim()) {
       localStorage.setItem(API_KEY_STORAGE_KEY, tempApiKey.trim());
       setApiKey(tempApiKey.trim());
-      setShowApiKeyDialog(false);
     }
+  };
+
+  const clearApiKey = () => {
+    localStorage.removeItem(API_KEY_STORAGE_KEY);
+    setApiKey("");
   };
 
   const handleGenerate = async () => {
@@ -101,53 +140,23 @@ const StableImageGeneratePage: React.FC = () => {
   const handleDownload = () => {
     if (!image) return;
 
-    // Create a temporary link element
     const link = document.createElement("a");
     link.href = image;
-
-    // Generate filename with timestamp
     const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
     link.download = `generated-${timestamp}.png`;
-
-    // Trigger download
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // API Key Dialog Component
-  const ApiKeyDialog = () => (
-    <Dialog open={showApiKeyDialog} onOpenChange={setShowApiKeyDialog}>
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>Enter your API Key</DialogTitle>
-          <DialogDescription>
-            Please enter your Stable Diffusion API key to continue. This will be
-            stored securely in your browser.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="space-y-4 pt-4">
-          <Input
-            type="password"
-            placeholder="Enter your API key"
-            value={tempApiKey}
-            onChange={(e) => setTempApiKey(e.target.value)}
-          />
-          <Button
-            onClick={handleApiKeySubmit}
-            className="w-full"
-            disabled={!tempApiKey.trim()}
-          >
-            Save API Key
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-
   return (
     <>
-      <ApiKeyDialog />
+      <ApiKeyDialog
+        apiKey={apiKey}
+        setTempApiKey={setTempApiKey}
+        handleApiKeySubmit={handleApiKeySubmit}
+        tempApiKey={tempApiKey}
+      />
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 py-8 px-4">
         <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-6 space-y-6">
           <div className="text-center">
@@ -297,7 +306,7 @@ const StableImageGeneratePage: React.FC = () => {
                 className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-blue-500"
                 min="1"
                 max="10"
-                step="0.1"
+                step="1"
               />
             </div>
           </div>
@@ -357,6 +366,14 @@ const StableImageGeneratePage: React.FC = () => {
               </div>
             </div>
           )}
+
+          <Button
+            disabled={loading}
+            onClick={clearApiKey}
+            className="w-full text-center"
+          >
+            Remove API Key
+          </Button>
         </div>
       </div>
     </>
